@@ -5,6 +5,7 @@ from .auth import password_hash
 from .constants import Role
 from .conflict_service import normalize
 from .algorithm import classify
+from .triage_service import recommend_followup
 
 def seed():
     with Session() as db:
@@ -25,7 +26,12 @@ def seed():
                 if not party:party=Party(name=name,normalized=normalize(name));db.add(party);db.flush()
                 db.add(CaseParty(intake_id=case.id,party_id=party.id,side=side))
             label,confidence,metrics=classify(facts)
-            triage=Triage(intake_id=case.id,facts_version=1,status='done' if code=='LZ033' else 'reviewed',predicted=label,confidence=confidence,approved=None if code=='LZ033' else 'labor' if code in ('LZ030','LZ031') else 'housing',manual_required=confidence<.68,review_note='接待主管核对主题' if code!='LZ033' else '',metrics=metrics);db.add(triage)
+            if code=='LZ033':
+                # 模糊事实低置信：真实试算备选追问，生成“该问什么、为什么”的演示记录
+                triage=Triage(intake_id=case.id,facts_version=1,predicted=label,confidence=confidence,metrics=metrics);db.add(triage);db.flush()
+                recommend_followup(triage)
+            else:
+                triage=Triage(intake_id=case.id,facts_version=1,status='reviewed',predicted=label,confidence=confidence,approved='labor' if code in ('LZ030','LZ031') else 'housing',manual_required=confidence<.68,review_note='接待主管核对主题',metrics=metrics);db.add(triage)
             if code=='LZ030':
                 agency=db.scalar(select(Agency).where(Agency.code=='YN'));agency.active_count+=1
                 db.add(Referral(intake_id=case.id,agency_id=agency.id,topic='labor',status='accepted',receipt='YN-ACK-030',note='模拟相对方关联承接，用于冲突核验'))

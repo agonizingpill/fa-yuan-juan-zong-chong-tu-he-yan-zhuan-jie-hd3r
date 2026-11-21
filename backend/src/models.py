@@ -58,6 +58,11 @@ class Triage(Base):
     review_note:Mapped[str]=mapped_column(String(200),default='')
     metrics:Mapped[dict]=mapped_column(JSON,default=dict)
     error:Mapped[str]=mapped_column(String(200),default='')
+    # 单一追问分流：待问问题、试算理由、答复及答复后的重算结果
+    followup_question:Mapped[str|None]=mapped_column(String(40),nullable=True)
+    followup_detail:Mapped[dict]=mapped_column(JSON,default=dict)
+    answer_option:Mapped[str|None]=mapped_column(String(40),nullable=True)
+    answer_text:Mapped[str]=mapped_column(String(500),default='')
 class Requirement(Base):
     __tablename__='requirements'
     __table_args__=(UniqueConstraint('topic','code'),)

@@ -2,7 +2,7 @@ import logging,time,json
 from pathlib import Path
 from .database import Session
 from .models import Triage,Intake
-from .triage_service import queue
+from .triage_service import queue,recommend_followup
 from .algorithm import classify
 logging.basicConfig(level=logging.INFO)
 while True:
@@ -17,7 +17,12 @@ while True:
             try:
                 case=db.get(Intake,row.intake_id)
                 if case.facts_version!=row.facts_version:raise ValueError('事实版本已更新，请重新提交')
-                row.predicted,row.confidence,row.metrics=classify(case.facts);row.manual_required=row.confidence<.68;row.status='done'
+                row.predicted,row.confidence,row.metrics=classify(case.facts)
+                if row.confidence<.68:
+                    # 拿不准时只追问一件事：试算备选问题，挑最能分清主题的一问；都难分则交主管
+                    recommend_followup(row)
+                else:
+                    row.manual_required=False;row.status='done'
                 Path('/artifacts').mkdir(exist_ok=True);Path(f'/artifacts/triage-{row.id}.json').write_text(json.dumps(row.metrics,ensure_ascii=False))
             except Exception as e:row.status='failed';row.error=str(e)[:200]
             db.commit()

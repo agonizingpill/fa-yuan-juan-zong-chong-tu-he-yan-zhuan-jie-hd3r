@@ -23,6 +23,11 @@ class TriageInput(BaseModel):
 class ReviewInput(BaseModel):
     topic:str=Field(pattern='^(labor|housing|consumer)$')
     note:str=Field(min_length=3,max_length=200)
+class FollowupAnswer(BaseModel):
+    option_id:str=Field(min_length=2,max_length=40)
+    answer_text:str=Field(min_length=2,max_length=500)
+class EscalateInput(BaseModel):
+    note:str=Field(min_length=3,max_length=200)
 class DocumentInput(BaseModel):
     intake_id:int
     requirement_id:int

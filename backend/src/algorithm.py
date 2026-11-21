@@ -13,5 +13,7 @@ def classify(text):
         for i in range(36):texts.append(phrases[i%len(phrases)]+f' 模拟行政来访编号{i} '+'请协助登记分流');ys.append(label)
     train,test=train_test_split(np.arange(len(texts)),test_size=.25,random_state=34,stratify=ys)
     model=make_pipeline(TfidfVectorizer(analyzer='char',ngram_range=(2,3)),MultinomialNB(alpha=.5)).fit([texts[i] for i in train],[ys[i] for i in train])
-    predicted=model.predict([texts[i] for i in test]);proba=model.predict_proba([text])[0];idx=int(np.argmax(proba));label=str(model.classes_[idx]);confidence=float(proba[idx])
-    return label,confidence,{'macro_f1':float(f1_score([ys[i] for i in test],predicted,average='macro')),'confusion_matrix':confusion_matrix([ys[i] for i in test],predicted,labels=LABELS).tolist(),'labels':LABELS,'train_count':len(train),'test_count':len(test),'seed':34,'threshold':.68,'dataset_sha256':hashlib.sha256(chr(10).join(texts).encode()).hexdigest(),'source':'主题模板合成文本，仅验证内部行政分流；不是法律意见'}
+    predicted=model.predict([texts[i] for i in test]);proba=model.predict_proba([text])[0];order=[str(c) for c in model.classes_];idx=int(np.argmax(proba));label=order[idx];confidence=float(proba[idx])
+    distribution={name:float(proba[order.index(name)]) for name in LABELS}
+    metrics={'macro_f1':float(f1_score([ys[i] for i in test],predicted,average='macro')),'confusion_matrix':confusion_matrix([ys[i] for i in test],predicted,labels=LABELS).tolist(),'labels':LABELS,'train_count':len(train),'test_count':len(test),'seed':34,'threshold':.68,'probability_distribution':distribution,'dataset_sha256':hashlib.sha256(chr(10).join(texts).encode()).hexdigest(),'source':'主题模板合成文本，仅验证内部行政分流；不是法律意见'}
+    return label,confidence,metrics

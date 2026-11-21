@@ -1,12 +1,16 @@
 from sqlalchemy import select
-from .models import Intake,Consent,Agency,now
+from .models import Intake,Consent,Agency,Triage,now
 from .common import get,reject,finish,active_referral,editable
 
 def create(db,data,user):
     reject(db.scalar(select(Intake).where(Intake.code==data.code)) is not None,'收件编号已存在')
     row=Intake(**data.model_dump());db.add(row);db.flush();db.add(Consent(intake_id=row.id,authorized=False,basis='尚未取得转介授权'));return finish(db,user,'来访建卷',row)
 def revise(db,id,data,user):
-    row=editable(db,id);row.facts=data.facts;row.facts_version+=1;return finish(db,user,'事实更正并更新版本',row)
+    row=editable(db,id)
+    # 事实更正在先：旧版本分流（含等待追问答复的记录）立即失效，旧问题不能再接答
+    for old in db.scalars(select(Triage).where(Triage.intake_id==id,Triage.facts_version==row.facts_version,Triage.status.in_(('queued','running','done','awaiting_answer','escalated')))):
+        old.status='stale';old.error='事实已更正，旧版本分流失效'
+    row.facts=data.facts;row.facts_version+=1;return finish(db,user,'事实更正并更新版本',row)
 def consent(db,id,data,user):
     case=get(db,Intake,id,True);row=db.scalar(select(Consent).where(Consent.intake_id==id))
     reject(case.status=='closed','销案卷宗只读')
